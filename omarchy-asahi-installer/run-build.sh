@@ -55,7 +55,7 @@ bsdtar -xpf "$ARCH_ARM_TAR" -C "$NSPAWN_ROOT"
 
 # Initialize pacman keyring and install build dependencies
 echo "Installing build dependencies in container..."
-systemd-nspawn -D "$NSPAWN_ROOT" --pipe /bin/bash <<'SETUP'
+systemd-nspawn -D "$NSPAWN_ROOT" --resolv-conf=bind-host --pipe /bin/bash <<'SETUP'
 pacman-key --init
 pacman-key --populate archlinuxarm
 pacman -Syu --noconfirm
@@ -82,6 +82,7 @@ OMARCHY_REPO="${OMARCHY_REPO:-techiventure/asahi-omarchy}"
 OMARCHY_REF="${OMARCHY_REF:-master}"
 
 systemd-nspawn -D "$NSPAWN_ROOT" \
+  --resolv-conf=bind-host \
   --bind="$BUILD_DIR":/build \
   --setenv=OMARCHY_REPO="$OMARCHY_REPO" \
   --setenv=OMARCHY_REF="$OMARCHY_REF" \

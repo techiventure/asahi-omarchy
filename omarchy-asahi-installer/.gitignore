@@ -4,6 +4,8 @@ build/root/
 build/img/
 build/images/
 .nspawn-root/
+.pkg-build-root/
+packages/
 
 # OS
 .DS_Store
