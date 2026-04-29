@@ -1,0 +1,5 @@
+## Omarchy Asahi package repository
+## Self-hosted on Cloudflare R2 CDN
+## Packages built from source (AsahiLinux/* upstream repos)
+
+Server = https://r2-foss.techiventure.com/asahi-omarchy/packages/$arch

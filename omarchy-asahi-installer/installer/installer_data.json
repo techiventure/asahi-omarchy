@@ -1,0 +1,32 @@
+{
+  "os_list": [
+    {
+      "name": "Omarchy",
+      "default_os_name": "Omarchy",
+      "boot_object": "m1n1.bin",
+      "next_object": "m1n1/boot.bin",
+      "package": "https://r2-foss.techiventure.com/asahi-omarchy/images/omarchy.zip",
+      "supported_fw": ["12.3", "12.3.1", "13.5"],
+      "extras": {},
+      "partitions": [
+        {
+          "name": "EFI",
+          "type": "EFI",
+          "size": "524288000B",
+          "format": "fat",
+          "volume_id": "0x2abf9f91",
+          "copy_firmware": true,
+          "copy_installer_data": true,
+          "source": "esp"
+        },
+        {
+          "name": "Root",
+          "type": "Linux",
+          "size": "8000000000B",
+          "expand": true,
+          "image": "root.img"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,208 @@
+#!/bin/bash
+# Omarchy First Boot Setup
+# Runs once on first boot to create user account and finalize configuration.
+
+set -e
+
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+BLUE='\033[0;34m'
+BOLD='\033[1m'
+NC='\033[0m'
+
+clear
+
+echo -e "${BOLD}"
+echo "  ____  __  __    _    ____   ____ _   ___   __"
+echo " / __ \|  \/  |  / \  |  _ \ / ___| | | \ \ / /"
+echo "| |  | | |\/| | / _ \ | |_) | |   | |_| |\ V / "
+echo "| |  | | |  | |/ ___ \|  _ <| |___|  _  | | |  "
+echo " \____/|_|  |_/_/   \_|_| \_\\\\____|_| |_| |_|  "
+echo -e "${NC}"
+echo ""
+echo -e "${BOLD}Welcome to Omarchy! Let's set up your system.${NC}"
+echo ""
+echo "Press Ctrl+C at any time to quit."
+echo ""
+
+trap 'echo -e "\n${RED}Setup cancelled. Run omarchy-firstboot to retry.${NC}"; exit 1' INT
+
+# ─────────────────────────────────────────────
+# Step 1: Network Connection
+# ─────────────────────────────────────────────
+
+echo -e "${BLUE}Step 1: Connect to the internet${NC}"
+echo ""
+
+if ping -c 1 -W 3 archlinuxarm.org &>/dev/null; then
+  echo -e "${GREEN}Already connected to the internet.${NC}"
+else
+  echo "You need an internet connection to complete setup."
+  echo ""
+  echo "  1. WiFi (recommended for MacBooks)"
+  echo "  2. Skip (if using ethernet, it should connect automatically)"
+  echo ""
+  read -p "Choice [1]: " net_choice
+  net_choice=${net_choice:-1}
+
+  if [[ $net_choice == "1" ]]; then
+    # nmtui provides a friendly TUI wifi picker
+    nmtui connect
+
+    echo ""
+    echo "Verifying connection..."
+    sleep 3
+    if ! ping -c 1 -W 5 archlinuxarm.org &>/dev/null; then
+      echo -e "${RED}Could not reach the internet.${NC}"
+      echo "Try: nmcli device wifi connect <SSID> password <password>"
+      echo "Then run: omarchy-firstboot"
+      exit 1
+    fi
+    echo -e "${GREEN}Connected!${NC}"
+  fi
+fi
+
+echo ""
+
+# ─────────────────────────────────────────────
+# Step 2: User Account
+# ─────────────────────────────────────────────
+
+echo -e "${BLUE}Step 2: Create your user account${NC}"
+echo ""
+
+# Username
+while true; do
+  read -p "Username: " username
+  if [[ -z $username ]]; then
+    echo -e "${RED}Username cannot be empty.${NC}"
+    continue
+  fi
+  if [[ ! $username =~ ^[a-z_][a-z0-9_-]*$ ]]; then
+    echo -e "${RED}Use lowercase letters, numbers, hyphens, underscores.${NC}"
+    continue
+  fi
+  if id "$username" &>/dev/null; then
+    echo -e "${RED}User '$username' already exists.${NC}"
+    continue
+  fi
+  break
+done
+
+# Full name
+while true; do
+  read -p "Full name: " fullname
+  if [[ -z $fullname ]]; then
+    echo -e "${RED}Full name cannot be empty.${NC}"
+    continue
+  fi
+  break
+done
+
+# Email
+while true; do
+  read -p "Email (for git): " email
+  if [[ -z $email ]]; then
+    echo -e "${RED}Email cannot be empty.${NC}"
+    continue
+  fi
+  break
+done
+
+# Password
+while true; do
+  read -s -p "Password: " password
+  echo ""
+  if [[ -z $password ]]; then
+    echo -e "${RED}Password cannot be empty.${NC}"
+    continue
+  fi
+  read -s -p "Confirm password: " password2
+  echo ""
+  if [[ $password != "$password2" ]]; then
+    echo -e "${RED}Passwords don't match.${NC}"
+    continue
+  fi
+  break
+done
+
+echo ""
+echo "Creating user '$username'..."
+
+# Create user
+useradd -m -G wheel,video,audio,input,docker -s /bin/zsh -c "$fullname" "$username"
+echo "$username:$password" | chpasswd
+
+# Enable sudo for wheel
+sed -i 's/^# %wheel ALL=(ALL:ALL) ALL/%wheel ALL=(ALL:ALL) ALL/' /etc/sudoers
+
+# Git config
+su - "$username" -c "git config --global user.name \"$fullname\""
+su - "$username" -c "git config --global user.email \"$email\""
+
+echo -e "${GREEN}User '$username' created.${NC}"
+echo ""
+
+# ─────────────────────────────────────────────
+# Step 3: System Configuration
+# ─────────────────────────────────────────────
+
+echo -e "${BLUE}Step 3: System configuration${NC}"
+echo ""
+
+# Hostname
+read -p "Hostname [omarchy]: " hostname
+hostname=${hostname:-omarchy}
+echo "$hostname" > /etc/hostname
+cat > /etc/hosts <<EOF
+127.0.0.1 localhost
+::1       localhost
+127.0.1.1 $hostname.localdomain $hostname
+EOF
+
+# Timezone
+echo ""
+echo "Common timezones: America/New_York, America/Chicago, America/Denver,"
+echo "  America/Los_Angeles, Europe/London, Europe/Berlin, Asia/Tokyo"
+read -p "Timezone [UTC]: " timezone
+timezone=${timezone:-UTC}
+if [[ -f "/usr/share/zoneinfo/$timezone" ]]; then
+  ln -sf "/usr/share/zoneinfo/$timezone" /etc/localtime
+  hwclock --systohc 2>/dev/null || true
+else
+  echo -e "${RED}Invalid timezone, using UTC.${NC}"
+  ln -sf /usr/share/zoneinfo/UTC /etc/localtime
+fi
+
+# Locale
+sed -i 's/^#en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen
+locale-gen
+echo "LANG=en_US.UTF-8" > /etc/locale.conf
+
+# Lock root
+passwd -l root
+
+# Enable display manager now that a user exists
+systemctl enable sddm.service
+
+# Optional: check for system updates
+echo ""
+echo "Checking for updates (this may take a moment)..."
+pacman -Syu --noconfirm 2>/dev/null || echo "Update check skipped."
+
+# ─────────────────────────────────────────────
+# Done
+# ─────────────────────────────────────────────
+
+# Remove sentinel file
+rm -f /etc/omarchy-firstboot
+systemctl disable omarchy-firstboot.service
+
+echo ""
+echo -e "${GREEN}${BOLD}Setup complete!${NC}"
+echo ""
+echo "Your system will reboot in 5 seconds."
+echo "Log in as '$username' at the Omarchy login screen."
+echo ""
+sleep 5
+reboot
