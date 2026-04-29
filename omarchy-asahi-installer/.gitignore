@@ -1,0 +1,20 @@
+# Build artifacts
+build/dl/
+build/root/
+build/img/
+build/images/
+.nspawn-root/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+
+# Logs
+*.log

@@ -1,0 +1,17 @@
+[Unit]
+Description=Omarchy First Boot Setup
+After=multi-user.target
+ConditionPathExists=/etc/omarchy-firstboot
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/omarchy-firstboot
+StandardInput=tty
+StandardOutput=tty
+TTYPath=/dev/tty1
+TTYReset=yes
+TTYVHangup=yes
+RemainAfterExit=no
+
+[Install]
+WantedBy=multi-user.target
